@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>Dashboard | Smart Inventory</title>
+  <script>
+    (function () {
+      const theme = localStorage.getItem('sims_theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (theme === 'dark' || (!theme && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-100">
+  <div class="min-h-screen md:flex">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-72 -translate-x-full border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 dark:border-slate-800 dark:bg-slate-900 md:static md:translate-x-0 md:shadow-none">
+      <div class="flex h-full flex-col">
+        <div class="border-b border-slate-200 bg-gradient-to-r from-sky-50 to-emerald-50 px-6 py-5 dark:border-slate-800 dark:from-sky-900/30 dark:to-emerald-900/20">
+          <a href="dashboard.html" class="flex items-center gap-3">
+            <div class="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-sky-600 to-emerald-500 text-sm font-bold text-white shadow-lg shadow-sky-200">SI</div>
+            <div>
+              <p class="text-sm font-semibold leading-none dark:text-slate-100">Smart Inventory</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Operations Console</p>
+            </div>
+          </a>
+        </div>
+
+        <nav class="flex-1 space-y-1 px-4 py-5 text-sm">
+          <p class="px-4 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Workspace</p>
+          <a href="dashboard.html" class="flex items-center justify-between rounded-xl bg-sky-50 px-4 py-2.5 font-semibold text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:ring-sky-800">
+            <span class="inline-flex items-center gap-2">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.5h8.5V3H3v10.5Zm9.5 7.5H21V3h-8.5v18ZM3 21h8.5v-6.5H3V21Z"/></svg>
+              Dashboard
+            </span>
+            <span class="h-2 w-2 rounded-full bg-sky-600"></span>
+          </a>
+          <a href="inventory.html" class="flex items-center gap-2 rounded-xl px-4 py-2.5 font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m3 7.5 9-4.5 9 4.5M3 7.5v9L12 21m-9-13.5L12 12m9-4.5v9L12 21m0-9v9"/></svg>
+            Inventory
+          </a>
+          <a href="index.html" class="flex items-center gap-2 rounded-xl px-4 py-2.5 font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 11.5 12 4l9 7.5M5.5 10v10h13V10"/></svg>
+            Landing Page
+          </a>
+
+          <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/70">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Quick Snapshot</p>
+            <div class="mt-2 space-y-2 text-xs">
+              <div class="flex items-center justify-between rounded-lg bg-amber-100/70 px-2 py-1.5 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                <span>Low Stock</span>
+                <span id="sidebarLowCount" class="font-semibold">0</span>
+              </div>
+              <div class="flex items-center justify-between rounded-lg bg-red-100/70 px-2 py-1.5 text-red-800 dark:bg-red-500/20 dark:text-red-300">
+                <span>Out Stock</span>
+                <span id="sidebarOutCount" class="font-semibold">0</span>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        <div class="border-t border-slate-200 px-4 py-4 dark:border-slate-800">
+          <div class="mb-3 rounded-xl bg-slate-50 px-4 py-3 dark:bg-slate-800/70">
+            <p id="userName" class="text-sm font-semibold text-slate-900 dark:text-slate-100"></p>
+            <p id="businessName" class="text-xs text-slate-500 dark:text-slate-400"></p>
+          </div>
+          <button id="logoutBtn" type="button" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Logout</button>
+        </div>
+      </div>
+    </aside>
+
+    <div id="sidebarBackdrop" class="fixed inset-0 z-30 hidden bg-slate-900/40 md:hidden"></div>
+
+    <div class="relative flex-1">
+      <div class="pointer-events-none absolute -top-44 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-cyan-300/35 via-sky-300/20 to-emerald-300/35 blur-3xl"></div>
+
+      <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/85 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <div class="flex items-center gap-3">
+            <button id="sidebarToggle" type="button" class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 md:hidden">Menu</button>
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Overview</p>
+              <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">Inventory Dashboard</h1>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="commandPaletteBtn" type="button" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">Ctrl+K</button>
+            <button id="themeToggleBtn" type="button" aria-label="Toggle theme" title="Toggle theme" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              <span id="themeIcon" class="inline-flex h-4 w-4 items-center justify-center"></span>
+              <span id="themeLabel">Dark Mode</span>
+            </button>
+            <button id="loadDemoBtn" type="button" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-300 transition hover:-translate-y-0.5 hover:bg-slate-700">Load Demo</button>
+            <button id="clearDataBtn" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Clear</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Products</p>
+            <p id="totalProducts" class="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">0</p>
+          </article>
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Units</p>
+            <p id="totalUnits" class="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">0</p>
+          </article>
+          <article class="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm dark:border-amber-700/50 dark:bg-amber-500/10">
+            <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">Low Stock</p>
+            <p id="lowStockCount" class="mt-2 text-3xl font-bold text-amber-700">0</p>
+            <p class="mt-1 text-xs text-amber-700/80">Quantity less than 10</p>
+          </article>
+          <article class="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm dark:border-red-700/50 dark:bg-red-500/10">
+            <p class="text-xs font-semibold uppercase tracking-wide text-red-700">Out of Stock</p>
+            <p id="outStockCount" class="mt-2 text-3xl font-bold text-red-700">0</p>
+            <p class="mt-1 text-xs text-red-700/80">Quantity equals 0</p>
+          </article>
+          <article class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm dark:border-emerald-700/50 dark:bg-emerald-500/10">
+            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Inventory Value</p>
+            <p id="inventoryValue" class="mt-2 text-3xl font-bold text-emerald-700">₹0.00</p>
+          </article>
+          <article class="col-span-full rounded-2xl border-2 border-indigo-200 bg-indigo-50 p-5 shadow-sm dark:border-indigo-700/50 dark:bg-indigo-900/20 sm:col-span-2 xl:col-span-1">
+            <p class="text-xs font-semibold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">Turnover Rate (30d)</p>
+            <p id="turnoverRate" class="mt-2 text-3xl font-bold text-indigo-700 dark:text-indigo-300">0.0</p>
+            <p class="mt-1 text-xs text-indigo-700/80 dark:text-indigo-300/80">Units Sold / Avg Stock</p>
+          </article>
+        </section>
+
+        <section class="mt-6 grid gap-6 xl:grid-cols-3">
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 xl:col-span-2">
+            <div class="mb-4 flex items-center justify-between">
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Critical Alerts (Low + Out)</h2>
+              <span id="alertBadge" class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">0 alerts</span>
+            </div>
+            <p class="mb-3 text-xs text-slate-500 dark:text-slate-400">Low when quantity is less than 10. Out when quantity is 0.</p>
+            <div id="lowStockList" class="space-y-3"></div>
+          </article>
+
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div class="mb-4 flex items-center justify-between">
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Quick Actions</h2>
+            </div>
+            <div class="space-y-2">
+              <a href="inventory.html" class="block rounded-xl bg-sky-600 px-4 py-2.5 text-center text-sm font-semibold text-white transition hover:bg-sky-500">Open Inventory Manager</a>
+              <button id="restockAllLowBtn" type="button" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Auto Restock Low Items</button>
+            </div>
+            <div class="mt-6 space-y-4">
+              <div>
+                <div class="mb-1 flex justify-between text-sm">
+                  <span class="text-slate-600 dark:text-slate-300">Healthy stock</span>
+                  <span id="healthyCount" class="font-semibold text-emerald-700">0</span>
+                </div>
+                <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800"><div id="healthyBar" class="h-2 w-0 rounded-full bg-emerald-500 transition-all duration-500"></div></div>
+              </div>
+              <div>
+                <div class="mb-1 flex justify-between text-sm">
+                  <span class="text-slate-600 dark:text-slate-300">Low stock</span>
+                  <span id="lowCount" class="font-semibold text-amber-700">0</span>
+                </div>
+                <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800"><div id="lowBar" class="h-2 w-0 rounded-full bg-amber-500 transition-all duration-500"></div></div>
+              </div>
+              <div>
+                <div class="mb-1 flex justify-between text-sm">
+                  <span class="text-slate-600 dark:text-slate-300">Out of stock</span>
+                  <span id="outCount" class="font-semibold text-red-700">0</span>
+                </div>
+                <div class="h-2 rounded-full bg-slate-100 dark:bg-slate-800"><div id="outBar" class="h-2 w-0 rounded-full bg-red-500 transition-all duration-500"></div></div>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Top Inventory Value</h2>
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Top 5 items</span>
+          </div>
+          <div id="topValueList" class="space-y-3"></div>
+        </section>
+
+        <section class="mt-6 grid gap-6 lg:grid-cols-2">
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div class="mb-4 flex items-center justify-between">
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Stock Mix</h2>
+              <span class="text-xs text-slate-500 dark:text-slate-400">Healthy vs Low vs Out</span>
+            </div>
+            <canvas id="stockMixChart" height="220"></canvas>
+          </article>
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div class="mb-4 flex items-center justify-between">
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Category Value</h2>
+              <span class="text-xs text-slate-500 dark:text-slate-400">Top 6 categories</span>
+            </div>
+            <canvas id="categoryValueChart" height="220"></canvas>
+          </article>
+        </section>
+
+        <!-- AI Advisory Section -->
+        <section class="mt-6 rounded-2xl border-2 border-purple-200 bg-gradient-to-br from-white to-purple-50/30 p-5 shadow-sm dark:border-purple-800/50 dark:from-slate-900 dark:to-purple-900/10">
+          <div class="mb-4 flex items-center justify-between border-b border-purple-100 pb-4 dark:border-purple-800/30">
+            <div>
+              <h2 class="flex items-center gap-2 text-lg font-bold text-purple-900 dark:text-purple-100">
+                <svg class="h-5 w-5 text-purple-600 dark:text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                AI Advisory & Demand Forecasting
+              </h2>
+              <p class="mt-1 text-sm text-purple-600 dark:text-purple-300">Powered by Scikit-Learn. Predictions for the next 7 days based on 30-day historical usage.</p>
+            </div>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+              <thead class="border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-700/50 dark:text-slate-400">
+                <tr>
+                  <th class="px-4 py-3">Product</th>
+                  <th class="px-4 py-3">Current Stock</th>
+                  <th class="px-4 py-3 text-purple-700 dark:text-purple-300">Predicted Demand (7d)</th>
+                  <th class="px-4 py-3 text-indigo-700 dark:text-indigo-300">AI Reorder Level</th>
+                  <th class="px-4 py-3">Suggested Restock Qty</th>
+                  <th class="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody id="aiForecastTableBody" class="divide-y divide-slate-100 dark:divide-slate-800/50">
+                <!-- Data injected by JS -->
+                <tr>
+                  <td colspan="6" class="px-4 py-8 text-center text-slate-500">Loading AI insights...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+
+      <div id="commandPaletteModal" class="fixed inset-0 z-[70] hidden bg-slate-950/40 p-4 backdrop-blur-sm">
+        <div class="mx-auto mt-16 w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div class="border-b border-slate-200 p-3 dark:border-slate-700">
+            <input id="commandPaletteInput" type="text" placeholder="Type a command..." class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" />
+          </div>
+          <div id="commandPaletteList" class="max-h-80 overflow-y-auto p-2"></div>
+          <div class="flex items-center justify-between border-t border-slate-200 px-4 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            <span>Enter to run</span>
+            <button id="commandPaletteClose" type="button" class="rounded-lg px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800">Esc</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="pwa.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

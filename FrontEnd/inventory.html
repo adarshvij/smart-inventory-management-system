@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>Inventory Management | Smart Inventory</title>
+  <script>
+    (function () {
+      const theme = localStorage.getItem('sims_theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (theme === 'dark' || (!theme && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-100">
+  <div class="min-h-screen md:flex">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-72 -translate-x-full border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 dark:border-slate-800 dark:bg-slate-900 md:static md:translate-x-0 md:shadow-none">
+      <div class="flex h-full flex-col">
+        <div class="border-b border-slate-200 bg-gradient-to-r from-sky-50 to-emerald-50 px-6 py-5 dark:border-slate-800 dark:from-sky-900/30 dark:to-emerald-900/20">
+          <a href="dashboard.html" class="flex items-center gap-3">
+            <div class="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-sky-600 to-emerald-500 text-sm font-bold text-white shadow-lg shadow-sky-200">SI</div>
+            <div>
+              <p class="text-sm font-semibold leading-none dark:text-slate-100">Smart Inventory</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Operations Console</p>
+            </div>
+          </a>
+        </div>
+
+        <nav class="flex-1 space-y-1 px-4 py-5 text-sm">
+          <p class="px-4 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Workspace</p>
+          <a href="dashboard.html" class="flex items-center gap-2 rounded-xl px-4 py-2.5 font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.5h8.5V3H3v10.5Zm9.5 7.5H21V3h-8.5v18ZM3 21h8.5v-6.5H3V21Z"/></svg>
+            Dashboard
+          </a>
+          <a href="inventory.html" class="flex items-center justify-between rounded-xl bg-sky-50 px-4 py-2.5 font-semibold text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:ring-sky-800">
+            <span class="inline-flex items-center gap-2">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m3 7.5 9-4.5 9 4.5M3 7.5v9L12 21m-9-13.5L12 12m9-4.5v9L12 21m0-9v9"/></svg>
+              Inventory
+            </span>
+            <span class="h-2 w-2 rounded-full bg-sky-600"></span>
+          </a>
+          <a href="index.html" class="flex items-center gap-2 rounded-xl px-4 py-2.5 font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 11.5 12 4l9 7.5M5.5 10v10h13V10"/></svg>
+            Landing Page
+          </a>
+
+          <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/70">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Quick Snapshot</p>
+            <div class="mt-2 space-y-2 text-xs">
+              <div class="flex items-center justify-between rounded-lg bg-amber-100/70 px-2 py-1.5 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                <span>Critical</span>
+                <span id="sidebarLowCount" class="font-semibold">0</span>
+              </div>
+              <div class="flex items-center justify-between rounded-lg bg-red-100/70 px-2 py-1.5 text-red-800 dark:bg-red-500/20 dark:text-red-300">
+                <span>Out Stock</span>
+                <span id="sidebarOutCount" class="font-semibold">0</span>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        <div class="border-t border-slate-200 px-4 py-4 dark:border-slate-800">
+          <div class="mb-3 rounded-xl bg-slate-50 px-4 py-3 dark:bg-slate-800/70">
+            <p id="userName" class="text-sm font-semibold text-slate-900 dark:text-slate-100"></p>
+            <p id="businessName" class="text-xs text-slate-500 dark:text-slate-400"></p>
+          </div>
+          <button id="logoutBtn" type="button" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Logout</button>
+        </div>
+      </div>
+    </aside>
+
+    <div id="sidebarBackdrop" class="fixed inset-0 z-30 hidden bg-slate-900/40 md:hidden"></div>
+
+    <div class="relative flex-1">
+      <div class="pointer-events-none absolute -top-44 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-cyan-300/35 via-sky-300/20 to-emerald-300/35 blur-3xl"></div>
+
+      <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/85 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <div class="flex items-center gap-3">
+            <button id="sidebarToggle" type="button" class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 md:hidden">Menu</button>
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Module 4</p>
+              <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">Inventory Management</h1>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="commandPaletteBtn" type="button" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">Ctrl+K</button>
+            <button id="themeToggleBtn" type="button" aria-label="Toggle theme" title="Toggle theme" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              <span id="themeIcon" class="inline-flex h-4 w-4 items-center justify-center"></span>
+              <span id="themeLabel">Dark Mode</span>
+            </button>
+            <button id="loadDemoBtn" type="button" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-300 transition hover:-translate-y-0.5 hover:bg-slate-700">Load Demo</button>
+            <button id="clearProductsBtn" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Clear</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Products</p>
+            <p id="totalProducts" class="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">0</p>
+          </article>
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Total Units</p>
+            <p id="totalUnits" class="mt-2 text-3xl font-bold text-slate-900 dark:text-slate-100">0</p>
+          </article>
+          <article class="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm dark:border-amber-700/50 dark:bg-amber-500/10">
+            <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">Critical Stock</p>
+            <p id="lowStockCount" class="mt-2 text-3xl font-bold text-amber-700">0</p>
+          </article>
+          <article class="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm dark:border-red-700/50 dark:bg-red-500/10">
+            <p class="text-xs font-semibold uppercase tracking-wide text-red-700">Out of Stock</p>
+            <p id="outStockCount" class="mt-2 text-3xl font-bold text-red-700">0</p>
+          </article>
+          <article class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm dark:border-emerald-700/50 dark:bg-emerald-500/10">
+            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Inventory Value</p>
+            <p id="inventoryValue" class="mt-2 text-3xl font-bold text-emerald-700">₹0.00</p>
+          </article>
+        </section>
+
+        <section class="mt-6 grid gap-6 xl:grid-cols-3">
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 xl:col-span-1">
+            <h2 id="formTitle" class="text-lg font-semibold text-slate-900 dark:text-slate-100">Add Product</h2>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">Stock rules: Low when quantity is less than 10, Out when quantity is 0.</p>
+
+            <div id="alertBox" class="mt-4 hidden rounded-xl border px-4 py-3 text-sm"></div>
+
+            <form id="productForm" class="mt-4 space-y-3" novalidate>
+              <input type="hidden" id="productId" />
+
+              <div>
+                <label for="name" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Product name</label>
+                <input id="name" type="text" required class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" placeholder="Wireless Barcode Scanner" />
+              </div>
+
+              <div>
+                <label for="category" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Category</label>
+                <input id="category" type="text" required class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" placeholder="Hardware" />
+              </div>
+
+              <div>
+                <label for="sku" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">SKU</label>
+                <input id="sku" type="text" required class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm uppercase outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" placeholder="HW-208" />
+              </div>
+
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label for="quantity" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Quantity</label>
+                  <input id="quantity" type="number" min="0" required class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" placeholder="25" />
+                </div>
+                <div>
+                  <label for="reorderLevel" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Reorder level</label>
+                  <input id="reorderLevel" type="number" min="0" required class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" placeholder="10" />
+                </div>
+              </div>
+
+              <div>
+                <label for="unitPrice" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Unit price (Rupees)</label>
+                <input id="unitPrice" type="number" min="0" step="0.01" required class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" placeholder="32.00" />
+              </div>
+
+              <div class="flex gap-2 pt-1">
+                <button id="submitBtn" type="submit" class="flex-1 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-slate-300 transition hover:-translate-y-0.5 hover:bg-slate-700">Add Product</button>
+                <button id="cancelEditBtn" type="button" class="hidden rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Cancel</button>
+              </div>
+            </form>
+          </article>
+
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 xl:col-span-2">
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Products and Quick Stock Update</h2>
+              <input id="searchInput" type="search" placeholder="Search by name, category, or SKU" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60 sm:w-80" />
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-left text-sm">
+                <thead>
+                  <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    <th class="px-3 py-3">Product</th>
+                    <th class="px-3 py-3">Stock</th>
+                    <th class="px-3 py-3">Price</th>
+                    <th class="px-3 py-3">Status</th>
+                    <th class="px-3 py-3 text-right">Quick Update</th>
+                    <th class="px-3 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="productsTbody"></tbody>
+              </table>
+            </div>
+
+            <div id="emptyState" class="mt-4 hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+              No products found. Add your first item to get started.
+            </div>
+          </article>
+        </section>
+        
+        <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div class="mb-4 flex items-center justify-between">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Stock Movement History</h2>
+            <span class="text-xs font-medium text-slate-500 dark:text-slate-400">Latest 30 transactions</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  <th class="px-3 py-3">Time</th>
+                  <th class="px-3 py-3">Product</th>
+                  <th class="px-3 py-3">Type</th>
+                  <th class="px-3 py-3">Change</th>
+                  <th class="px-3 py-3">Qty</th>
+                  <th class="px-3 py-3">Note</th>
+                </tr>
+              </thead>
+              <tbody id="movementTbody"></tbody>
+            </table>
+          </div>
+
+          <div id="movementEmptyState" class="mt-4 hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
+            No stock movement recorded yet.
+          </div>
+        </section>
+      </main>
+
+      <div id="commandPaletteModal" class="fixed inset-0 z-[70] hidden bg-slate-950/40 p-4 backdrop-blur-sm">
+        <div class="mx-auto mt-16 w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+          <div class="border-b border-slate-200 p-3 dark:border-slate-700">
+            <input id="commandPaletteInput" type="text" placeholder="Type a command..." class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" />
+          </div>
+          <div id="commandPaletteList" class="max-h-80 overflow-y-auto p-2"></div>
+          <div class="flex items-center justify-between border-t border-slate-200 px-4 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            <span>Enter to run</span>
+            <button id="commandPaletteClose" type="button" class="rounded-lg px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800">Esc</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="pwa.js"></script>
+  <script src="inventory.js"></script>
+</body>
+</html>

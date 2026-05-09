@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>Login | Smart Inventory</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased">
+  <div class="relative min-h-screen overflow-hidden">
+    <div class="absolute -top-36 left-1/2 -z-10 h-[30rem] w-[30rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-cyan-300/40 via-sky-300/30 to-emerald-300/40 blur-3xl"></div>
+
+    <header class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+      <nav class="flex items-center justify-between py-6">
+        <a href="index.html" class="flex items-center gap-2">
+          <div class="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-sky-600 to-emerald-500 text-sm font-bold text-white shadow-lg shadow-sky-200">SI</div>
+          <span class="text-base font-semibold tracking-tight sm:text-lg">Smart Inventory</span>
+        </a>
+        <a href="signup.html" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow">Create account</a>
+      </nav>
+    </header>
+
+    <main class="mx-auto grid w-full max-w-7xl gap-8 px-4 pb-12 pt-2 sm:px-6 lg:grid-cols-2 lg:items-center lg:px-8 lg:pb-20">
+      <section class="order-2 lg:order-1">
+        <p class="inline-flex items-center rounded-full border border-sky-200 bg-white px-3 py-1 text-xs font-semibold text-sky-700 shadow-sm">Welcome back</p>
+        <h1 class="mt-4 text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">Sign in and keep stock under control</h1>
+        <p class="mt-4 max-w-xl text-slate-600">Monitor low-stock alerts, update inventory in real time, and make better purchasing decisions from one clean dashboard.</p>
+
+        <div class="mt-8 grid gap-3 sm:grid-cols-3">
+          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Active SKUs</p>
+            <p class="mt-1 text-2xl font-bold">1,284</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Low Stock</p>
+            <p class="mt-1 text-2xl font-bold text-amber-600">12</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Accuracy</p>
+            <p class="mt-1 text-2xl font-bold text-emerald-600">94%</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="order-1 rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-200 sm:p-8 lg:order-2">
+        <div class="mb-6">
+          <h2 class="text-2xl font-bold tracking-tight text-slate-900">Login</h2>
+          <p class="mt-1 text-sm text-slate-600">Enter your account details to continue.</p>
+        </div>
+
+        <div id="alertBox" class="mb-4 hidden rounded-xl border px-4 py-3 text-sm"></div>
+
+        <form id="loginForm" class="space-y-4" novalidate>
+          <div>
+            <label for="loginEmail" class="mb-1 block text-sm font-medium text-slate-700">Email</label>
+            <input id="loginEmail" name="email" type="email" required placeholder="you@company.com" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100" />
+          </div>
+
+          <div>
+            <label for="loginPassword" class="mb-1 block text-sm font-medium text-slate-700">Password</label>
+            <div class="relative">
+              <input id="loginPassword" name="password" type="password" required minlength="6" placeholder="Enter your password" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 pr-20 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100" />
+              <button id="toggleLoginPassword" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-slate-100">Show</button>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-sm">
+            <label class="inline-flex items-center gap-2 text-slate-600">
+              <input id="rememberMe" type="checkbox" class="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500" />
+              Remember me
+            </label>
+            <a href="signup.html" class="font-semibold text-sky-700 hover:text-sky-600">Need an account?</a>
+          </div>
+
+          <button type="submit" class="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-300 transition hover:-translate-y-0.5 hover:bg-slate-700">Login</button>
+        </form>
+
+        <p class="mt-6 text-center text-sm text-slate-600">
+          New here?
+          <a href="signup.html" class="font-semibold text-sky-700 hover:text-sky-600">Create your account</a>
+        </p>
+      </section>
+    </main>
+  </div>
+
+  <script src="pwa.js"></script>
+  <script src="auth.js"></script>
+</body>
+</html>
