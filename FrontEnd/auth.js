@@ -1,5 +1,5 @@
 const REMEMBERED_EMAIL_KEY = 'sims_remembered_email';
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'https://smart-inventory-backend-9fi4.onrender.com/api';
 
 function showAlert(message, type = 'error') {
   const alertBox = document.getElementById('alertBox');
