@@ -1,6 +1,6 @@
 const LOW_STOCK_THRESHOLD = 10;
 const THEME_KEY = 'sims_theme';
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'https://smart-inventory-backend-9fi4.onrender.com/api';
 
 let stockMixChart = null;
 let categoryValueChart = null;
