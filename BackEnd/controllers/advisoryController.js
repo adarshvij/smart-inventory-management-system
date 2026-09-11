@@ -67,7 +67,7 @@ exports.getAdvisoryDashboard = async (req, res) => {
     let aiResponse;
     try {
       // Connect to the Flask service running on port 5001
-      const response = await axios.post('${process.env.AI_SERVICE_URL}/api/forecast', {
+      const response = await axios.post(`${process.env.AI_SERVICE_URL}/api/forecast`, {
         products: productPayloads
       });
       aiResponse = response.data;
