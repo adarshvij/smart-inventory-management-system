@@ -6,67 +6,32 @@ let editingProductId = null;
 let paletteCommands = [];
 let products = [];
 let movements = [];
+let currentPage = 1;
+const itemsPerPage = 10;
+let selectedItems = new Set();
 
 // ─── API Helpers ───────────────────────────────────────────────────────────────
 
-function getAuthHeaders() {
-  const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`
-  };
-}
-
-async function apiFetch(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { ...getAuthHeaders(), ...(options.headers || {}) }
-  });
-
-  if (res.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = 'login.html';
-    throw new Error('Unauthorized');
-  }
-
-  return res;
-}
-
 async function loadProducts() {
-  const res = await apiFetch('/products');
-  if (!res.ok) throw new Error('Failed to load products');
-  products = await res.json();
+  products = await window.api.get('/products');
   return products;
 }
 
 async function loadMovements() {
-  const res = await apiFetch('/movements?limit=300');
-  if (!res.ok) throw new Error('Failed to load movements');
-  movements = await res.json();
+  movements = await window.api.get('/movements?limit=300');
   return movements;
 }
 
 // ─── Session ───────────────────────────────────────────────────────────────────
 
 function ensureSession() {
-  const token = localStorage.getItem('token');
-  const rawUser = localStorage.getItem('user');
-
-  if (!token || !rawUser || rawUser === 'undefined' || rawUser === 'null') {
+  if (!window.api.isAuthenticated()) {
     window.location.href = 'login.html';
     return null;
   }
 
-  let user;
-  try {
-    user = JSON.parse(rawUser);
-  } catch {
-    window.location.href = 'login.html';
-    return null;
-  }
-
-  if (!user || typeof user.fullName !== 'string' || user.fullName.trim() === '') {
+  const user = window.api.getUser();
+  if (!user || !user.fullName) {
     window.location.href = 'login.html';
     return null;
   }
@@ -75,6 +40,7 @@ function ensureSession() {
   const businessNameEl = document.getElementById('businessName');
   if (userNameEl) userNameEl.textContent = user.fullName;
   if (businessNameEl) businessNameEl.textContent = user.businessName || 'Business Account';
+  if (window.renderRoleBadge) window.renderRoleBadge();
 
   return user;
 }
@@ -112,39 +78,9 @@ function updateThemeButtonLabel() {
 
 function toggleTheme() {
   const nextTheme = isDarkMode() ? 'light' : 'dark';
-  localStorage.setItem(THEME_KEY, nextTheme);
   applyTheme(nextTheme);
   updateThemeButtonLabel();
-  showToast(`Switched to ${nextTheme} mode.`, 'info');
-}
-
-// ─── Toast ─────────────────────────────────────────────────────────────────────
-
-function ensureToastContainer() {
-  let container = document.getElementById('toastContainer');
-  if (container) return container;
-  container = document.createElement('div');
-  container.id = 'toastContainer';
-  container.className = 'fixed right-4 top-4 z-[90] flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col gap-2';
-  document.body.appendChild(container);
-  return container;
-}
-
-function showToast(message, type = 'info') {
-  const container = ensureToastContainer();
-  const toneMap = {
-    info: 'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-700 dark:bg-sky-500/10 dark:text-sky-200',
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200',
-    error: 'border-red-200 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-500/10 dark:text-red-200'
-  };
-  const toast = document.createElement('div');
-  toast.className = `rounded-xl border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur ${toneMap[type] || toneMap.info}`;
-  toast.textContent = message;
-  container.appendChild(toast);
-  setTimeout(() => {
-    toast.classList.add('opacity-0', 'transition', 'duration-300');
-    setTimeout(() => toast.remove(), 300);
-  }, 2400);
+  window.toast.show(`Switched to ${nextTheme} mode.`, 'info');
 }
 
 // ─── Alert ─────────────────────────────────────────────────────────────────────
@@ -220,25 +156,60 @@ function renderStats(prods) {
 
 // ─── Table Render ──────────────────────────────────────────────────────────────
 
-function renderTable(prods, query = '') {
+function renderTable() {
   const tbody = document.getElementById('productsTbody');
   const emptyState = document.getElementById('emptyState');
+  const searchInput = document.getElementById('searchInput');
+  const categoryFilter = document.getElementById('categoryFilter');
+  const sortFilter = document.getElementById('sortFilter');
+  
   if (!tbody || !emptyState) return;
 
-  const normalizedQuery = query.trim().toLowerCase();
-  const filtered = normalizedQuery
-    ? prods.filter((item) => `${item.name} ${item.category} ${item.sku}`.toLowerCase().includes(normalizedQuery))
-    : prods;
+  const query = (searchInput?.value || '').trim().toLowerCase();
+  const category = categoryFilter?.value || 'ALL';
+  const sort = sortFilter?.value || 'newest';
 
-  if (filtered.length === 0) {
+  let filtered = products.filter((item) => {
+    if (category !== 'ALL' && item.category !== category) return false;
+    if (query) {
+      return `${item.name} ${item.category} ${item.sku}`.toLowerCase().includes(query);
+    }
+    return true;
+  });
+
+  if (sort === 'name_asc') filtered.sort((a, b) => a.name.localeCompare(b.name));
+  else if (sort === 'stock_asc') filtered.sort((a, b) => Number(a.quantity || 0) - Number(b.quantity || 0));
+  else if (sort === 'stock_desc') filtered.sort((a, b) => Number(b.quantity || 0) - Number(a.quantity || 0));
+  else filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)); // newest first
+
+  const totalItems = filtered.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+  if (currentPage > totalPages) currentPage = totalPages;
+
+  const startIdx = (currentPage - 1) * itemsPerPage;
+  const endIdx = startIdx + itemsPerPage;
+  const paginated = filtered.slice(startIdx, endIdx);
+
+  const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+  if (selectAllCheckbox) {
+    selectAllCheckbox.checked = paginated.length > 0 && paginated.every(p => selectedItems.has(p._id || p.id));
+  }
+
+  if (paginated.length === 0) {
     tbody.innerHTML = '';
     emptyState.classList.remove('hidden');
+    document.getElementById('showingCount').textContent = '0';
+    document.getElementById('prevPageBtn').disabled = true;
+    document.getElementById('nextPageBtn').disabled = true;
     return;
   }
 
   emptyState.classList.add('hidden');
+  document.getElementById('showingCount').textContent = `${startIdx + 1}-${Math.min(endIdx, totalItems)} of ${totalItems}`;
+  document.getElementById('prevPageBtn').disabled = currentPage === 1;
+  document.getElementById('nextPageBtn').disabled = currentPage === totalPages;
 
-  tbody.innerHTML = filtered
+  tbody.innerHTML = paginated
     .map((item) => {
       const id = item._id || item.id;
       const quantity = Number(item.quantity || 0);
@@ -247,10 +218,18 @@ function renderTable(prods, query = '') {
       const totalValue = quantity * price;
 
       return `
-        <tr class="border-b border-slate-100 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50 last:border-0">
+        <tr class="border-b border-slate-100 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50 last:border-0 ${selectedItems.has(id) ? 'bg-sky-50/50 dark:bg-sky-900/10' : ''}">
           <td class="px-3 py-3 align-top">
-            <p class="font-semibold text-slate-900 dark:text-slate-100">${item.name}</p>
-            <p class="text-xs text-slate-500 dark:text-slate-400">${item.category} | SKU ${item.sku}</p>
+            <input type="checkbox" data-action="select" data-id="${id}" class="rounded border-slate-300 dark:border-slate-600 dark:bg-slate-800" ${selectedItems.has(id) ? 'checked' : ''} ${window.api.canDelete() ? '' : 'disabled'}>
+          </td>
+          <td class="px-3 py-3 align-top">
+            <div class="flex items-center gap-3">
+              ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${item.name}" class="h-10 w-10 rounded-lg object-cover bg-slate-100 dark:bg-slate-800" onerror="this.outerHTML='<div class=\\'grid h-10 w-10 place-items-center rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-400\\'><svg class=\\'h-5 w-5\\' fill=\\'none\\' viewBox=\\'0 0 24 24\\' stroke=\\'currentColor\\'><path stroke-linecap=\\'round\\' stroke-linejoin=\\'round\\' stroke-width=\\'2\\' d=\\'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z\\' /></svg></div>'" />` : `<div class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300 font-bold">${item.name.charAt(0).toUpperCase()}</div>`}
+              <div>
+                <p class="font-semibold text-slate-900 dark:text-slate-100">${item.name}</p>
+                <p class="text-xs text-slate-500 dark:text-slate-400">${item.category} | SKU ${item.sku}</p>
+              </div>
+            </div>
           </td>
           <td class="px-3 py-3 align-top">
             <p class="font-semibold text-slate-900 dark:text-slate-100">${quantity}</p>
@@ -262,6 +241,7 @@ function renderTable(prods, query = '') {
           </td>
           <td class="px-3 py-3 align-top">${getStatusBadge(quantity)}</td>
           <td class="px-3 py-3 align-top text-right">
+            ${window.api.canEdit() ? `
             <div class="inline-flex items-center gap-1">
               <button data-action="adjust" data-id="${id}" data-delta="-1" class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">-1</button>
               <button data-action="adjust" data-id="${id}" data-delta="1" class="rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">+1</button>
@@ -269,11 +249,12 @@ function renderTable(prods, query = '') {
               <input data-delta-input-id="${id}" type="number" class="w-16 rounded-lg border border-slate-300 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100" placeholder="qty" />
               <button data-action="apply-delta" data-id="${id}" class="rounded-lg bg-sky-600 px-2 py-1 text-xs font-semibold text-white hover:bg-sky-500">Apply</button>
             </div>
+            ` : '-'}
           </td>
           <td class="px-3 py-3 text-right align-top">
             <div class="inline-flex gap-2">
-              <button data-action="edit" data-id="${id}" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Edit</button>
-              <button data-action="delete" data-id="${id}" class="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100">Delete</button>
+              ${window.api.canEdit() ? `<button data-action="edit" data-id="${id}" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Edit</button>` : ''}
+              ${window.api.canDelete() ? `<button data-action="delete" data-id="${id}" class="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100">Delete</button>` : ''}
             </div>
           </td>
         </tr>
@@ -326,16 +307,42 @@ function renderMovementHistory() {
 
 // ─── Refresh UI ────────────────────────────────────────────────────────────────
 
+function updateCategoryFilter() {
+  const categoryFilter = document.getElementById('categoryFilter');
+  if (!categoryFilter) return;
+  const currentVal = categoryFilter.value;
+  const categories = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
+  
+  categoryFilter.innerHTML = '<option value="ALL">All Categories</option>' + 
+    categories.map(c => `<option value="${c}">${c}</option>`).join('');
+    
+  if (categories.includes(currentVal)) {
+    categoryFilter.value = currentVal;
+  }
+}
+
+function updateBulkActionBtn() {
+  const btn = document.getElementById('bulkActionBtn');
+  if (!btn) return;
+  if (selectedItems.size > 0) {
+    btn.classList.remove('hidden');
+    btn.textContent = `Bulk Actions (${selectedItems.size})`;
+  } else {
+    btn.classList.add('hidden');
+  }
+}
+
 async function refreshUI() {
   try {
     await Promise.all([loadProducts(), loadMovements()]);
   } catch (err) {
-    showToast('Error refreshing data.', 'error');
+    if (err.message !== 'Session expired') window.toast.show('Error refreshing data.', 'error');
   }
-  const searchInput = document.getElementById('searchInput');
+  updateCategoryFilter();
   renderStats(products);
-  renderTable(products, searchInput?.value || '');
+  renderTable();
   renderMovementHistory();
+  updateBulkActionBtn();
 }
 
 // ─── Form ──────────────────────────────────────────────────────────────────────
@@ -362,6 +369,7 @@ function fillFormForEdit(product) {
   document.getElementById('quantity').value = String(product.quantity);
   document.getElementById('reorderLevel').value = String(product.reorderLevel);
   document.getElementById('unitPrice').value = String(product.unitPrice);
+  document.getElementById('imageUrl').value = product.imageUrl || '';
 
   const formTitle = document.getElementById('formTitle');
   const submitBtn = document.getElementById('submitBtn');
@@ -382,7 +390,8 @@ function getFormPayload() {
     sku: (document.getElementById('sku')?.value.trim() || '').toUpperCase(),
     quantity: Number.isNaN(quantity) ? -1 : quantity,
     reorderLevel: Number.isNaN(reorderLevel) ? -1 : reorderLevel,
-    unitPrice: Number(document.getElementById('unitPrice')?.value || 0)
+    unitPrice: Number(document.getElementById('unitPrice')?.value || 0),
+    imageUrl: document.getElementById('imageUrl')?.value.trim() || ''
   };
 }
 
@@ -409,41 +418,49 @@ async function saveProduct(event) {
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
 
   try {
-    let res;
     if (editingProductId) {
-      res = await apiFetch(`/products/${editingProductId}`, {
-        method: 'PUT',
-        body: JSON.stringify(payload)
-      });
+      await window.api.put(`/products/${editingProductId}`, payload);
     } else {
-      res = await apiFetch('/products', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
+      await window.api.post('/products', payload);
     }
 
-    const data = await res.json();
-
-    if (!res.ok) {
-      showAlert(data.message || 'Failed to save product.', 'error');
-      return;
-    }
-
-    showToast(editingProductId ? 'Product updated successfully.' : 'Product added successfully.', 'success');
+    window.toast.show(editingProductId ? 'Product updated successfully.' : 'Product added successfully.', 'success');
     resetForm();
     await refreshUI();
   } catch (err) {
-    if (err.message !== 'Unauthorized') {
-      showAlert('Server error. Please try again.', 'error');
+    if (err.message !== 'Session expired') {
+      showAlert(err.message || 'Server error. Please try again.', 'error');
     }
   } finally {
-    if (submitBtn) { submitBtn.disabled = false; }
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = editingProductId ? 'Update Product' : 'Add Product'; }
   }
 }
 
 // ─── Table Actions ─────────────────────────────────────────────────────────────
 
 async function handleTableActions(event) {
+  const checkbox = event.target.closest('input[type="checkbox"][data-action="select"]');
+  if (checkbox) {
+    const id = checkbox.getAttribute('data-id');
+    if (checkbox.checked) selectedItems.add(id);
+    else selectedItems.delete(id);
+    updateBulkActionBtn();
+    
+    // Highlight row
+    const tr = checkbox.closest('tr');
+    if (tr) {
+      if (checkbox.checked) tr.classList.add('bg-sky-50/50', 'dark:bg-sky-900/10');
+      else tr.classList.remove('bg-sky-50/50', 'dark:bg-sky-900/10');
+    }
+    
+    // Check/uncheck selectAll if appropriate
+    const paginatedIds = Array.from(document.querySelectorAll('input[type="checkbox"][data-action="select"]')).map(cb => cb.getAttribute('data-id'));
+    const allSelected = paginatedIds.length > 0 && paginatedIds.every(id => selectedItems.has(id));
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    if (selectAllCheckbox) selectAllCheckbox.checked = allSelected;
+    return;
+  }
+
   const button = event.target.closest('button[data-action]');
   if (!button) return;
 
@@ -462,20 +479,21 @@ async function handleTableActions(event) {
   }
 
   if (action === 'delete') {
-    if (!window.confirm(`Delete "${target.name}"?`)) return;
+    const confirmed = await window.modal.confirm({
+      title: 'Delete Product',
+      message: `Are you sure you want to delete "${target.name}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      type: 'danger'
+    });
+    if (!confirmed) return;
 
     try {
-      const res = await apiFetch(`/products/${id}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json();
-        showToast(data.message || 'Failed to delete product.', 'error');
-        return;
-      }
+      await window.api.delete(`/products/${id}`);
       if (editingProductId === id) resetForm();
-      showToast('Product deleted successfully.', 'success');
+      window.toast.show('Product deleted successfully.', 'success');
       await refreshUI();
     } catch (err) {
-      if (err.message !== 'Unauthorized') showToast('Server error. Could not delete.', 'error');
+      if (err.message !== 'Session expired') window.toast.show(err.message || 'Server error. Could not delete.', 'error');
     }
     return;
   }
@@ -485,18 +503,13 @@ async function handleTableActions(event) {
     if (delta === 0) return;
 
     try {
-      const res = await apiFetch(`/products/${id}/adjust`, {
-        method: 'PATCH',
-        body: JSON.stringify({ delta })
-      });
-      const data = await res.json();
-      if (!res.ok) { showToast(data.message || 'Adjustment failed.', 'error'); return; }
+      const data = await window.api.patch(`/products/${id}/adjust`, { delta });
       if (data.actualDelta !== 0) {
-        showToast(`${target.name} stock updated by ${data.actualDelta > 0 ? '+' : ''}${data.actualDelta}.`, 'info');
+        window.toast.show(`${target.name} stock updated by ${data.actualDelta > 0 ? '+' : ''}${data.actualDelta}.`, 'info');
       }
       await refreshUI();
     } catch (err) {
-      if (err.message !== 'Unauthorized') showToast('Server error.', 'error');
+      if (err.message !== 'Session expired') window.toast.show(err.message || 'Server error.', 'error');
     }
     return;
   }
@@ -511,117 +524,16 @@ async function handleTableActions(event) {
     }
 
     try {
-      const res = await apiFetch(`/products/${id}/adjust`, {
-        method: 'PATCH',
-        body: JSON.stringify({ delta })
-      });
-      const data = await res.json();
-      if (!res.ok) { showToast(data.message || 'Adjustment failed.', 'error'); return; }
+      const data = await window.api.patch(`/products/${id}/adjust`, { delta });
       if (data.actualDelta !== 0) {
-        showToast(`${target.name} stock updated by ${data.actualDelta > 0 ? '+' : ''}${data.actualDelta}.`, 'success');
+        window.toast.show(`${target.name} stock updated by ${data.actualDelta > 0 ? '+' : ''}${data.actualDelta}.`, 'success');
       }
       if (input) input.value = '';
       await refreshUI();
     } catch (err) {
-      if (err.message !== 'Unauthorized') showToast('Server error.', 'error');
+      if (err.message !== 'Session expired') window.toast.show(err.message || 'Server error.', 'error');
     }
   }
-}
-
-// ─── Demo / Clear ──────────────────────────────────────────────────────────────
-
-async function loadDemoProducts() {
-  const demoProducts = [
-    { name: 'Premium Ball Pen Box', category: 'Stationery', sku: 'ST-001', quantity: 18, reorderLevel: 25, unitPrice: 5.5 },
-    { name: 'A4 Copier Paper', category: 'Office Supplies', sku: 'OS-024', quantity: 120, reorderLevel: 60, unitPrice: 4.75 },
-    { name: 'Wireless Barcode Scanner', category: 'Hardware', sku: 'HW-208', quantity: 4, reorderLevel: 8, unitPrice: 32 },
-    { name: 'Thermal Label Roll', category: 'Packaging', sku: 'PK-077', quantity: 0, reorderLevel: 15, unitPrice: 2.2 },
-    { name: 'Packing Tape 2-inch', category: 'Packaging', sku: 'PK-101', quantity: 12, reorderLevel: 12, unitPrice: 1.95 }
-  ];
-
-  showToast('Loading demo products...', 'info');
-
-  let added = 0;
-  for (const demo of demoProducts) {
-    try {
-      const res = await apiFetch('/products', { method: 'POST', body: JSON.stringify(demo) });
-      if (res.ok) added++;
-    } catch (err) {
-      // Skip on auth error
-      if (err.message === 'Unauthorized') return;
-    }
-  }
-
-  showToast(`${added} demo product(s) loaded.`, 'success');
-  resetForm();
-  await refreshUI();
-}
-
-async function clearAllProducts() {
-  if (!window.confirm('Clear all products from inventory? This cannot be undone.')) return;
-
-  try {
-    await loadProducts();
-    for (const product of products) {
-      const id = product._id || product.id;
-      await apiFetch(`/products/${id}`, { method: 'DELETE' });
-    }
-    products = [];
-    movements = [];
-    resetForm();
-    renderStats([]);
-    renderTable([], '');
-    renderMovementHistory();
-    showToast('All products cleared.', 'success');
-  } catch (err) {
-    if (err.message !== 'Unauthorized') showToast('Failed to clear products.', 'error');
-  }
-}
-
-// ─── Command Palette ───────────────────────────────────────────────────────────
-
-function getInventoryCommands() {
-  return [
-    { label: 'Add New Product (focus form)', action: () => document.getElementById('name')?.focus() },
-    { label: 'Load Demo Products', action: () => loadDemoProducts() },
-    { label: 'Clear All Products', action: () => clearAllProducts() },
-    { label: 'Open Dashboard', action: () => { window.location.href = 'dashboard.html'; } },
-    { label: 'Toggle Theme', action: () => toggleTheme() },
-    { label: 'Focus Search', action: () => document.getElementById('searchInput')?.focus() }
-  ];
-}
-
-function renderCommandPalette(filterText = '') {
-  const list = document.getElementById('commandPaletteList');
-  if (!list) return;
-
-  const query = filterText.trim().toLowerCase();
-  paletteCommands = getInventoryCommands().filter((cmd) => cmd.label.toLowerCase().includes(query));
-
-  if (paletteCommands.length === 0) {
-    list.innerHTML = '<p class="rounded-xl px-3 py-2 text-sm text-slate-500 dark:text-slate-400">No matching commands.</p>';
-    return;
-  }
-
-  list.innerHTML = paletteCommands
-    .map((cmd, index) => `<button data-cmd-index="${index}" class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">${cmd.label}</button>`)
-    .join('');
-}
-
-function openCommandPalette() {
-  const modal = document.getElementById('commandPaletteModal');
-  const input = document.getElementById('commandPaletteInput');
-  if (!modal || !input) return;
-  modal.classList.remove('hidden');
-  renderCommandPalette('');
-  input.value = '';
-  setTimeout(() => input.focus(), 0);
-}
-
-function closeCommandPalette() {
-  const modal = document.getElementById('commandPaletteModal');
-  if (!modal) return;
-  modal.classList.add('hidden');
 }
 
 // ─── Sidebar ───────────────────────────────────────────────────────────────────
@@ -638,85 +550,118 @@ function toggleSidebar(forceOpen) {
 
 // ─── Wire Actions ──────────────────────────────────────────────────────────────
 
+function handleBulkActions() {
+  if (selectedItems.size === 0) return;
+  const action = window.prompt('Bulk Action on ' + selectedItems.size + ' items.\\nType "DELETE" to delete them all.');
+  if (action === 'DELETE') {
+    Promise.all(Array.from(selectedItems).map(id => window.api.delete(`/products/${id}`)))
+      .then(() => {
+        window.toast.show(`${selectedItems.size} products deleted.`, 'success');
+        selectedItems.clear();
+        refreshUI();
+      })
+      .catch(err => {
+        if (err.message !== 'Session expired') window.toast.show('Error deleting some products.', 'error');
+      });
+  }
+}
+
 function wireActions() {
   const form = document.getElementById('productForm');
   const tbody = document.getElementById('productsTbody');
   const searchInput = document.getElementById('searchInput');
+  const categoryFilter = document.getElementById('categoryFilter');
+  const sortFilter = document.getElementById('sortFilter');
+  const prevPageBtn = document.getElementById('prevPageBtn');
+  const nextPageBtn = document.getElementById('nextPageBtn');
+  const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+  const bulkActionBtn = document.getElementById('bulkActionBtn');
+  
   const cancelEditBtn = document.getElementById('cancelEditBtn');
-  const loadDemoBtn = document.getElementById('loadDemoBtn');
-  const clearProductsBtn = document.getElementById('clearProductsBtn');
+  const imageUpload = document.getElementById('imageUpload');
   const logoutBtn = document.getElementById('logoutBtn');
   const sidebarToggle = document.getElementById('sidebarToggle');
   const sidebarBackdrop = document.getElementById('sidebarBackdrop');
   const themeToggleBtn = document.getElementById('themeToggleBtn');
-  const commandPaletteBtn = document.getElementById('commandPaletteBtn');
-  const commandPaletteClose = document.getElementById('commandPaletteClose');
-  const commandPaletteInput = document.getElementById('commandPaletteInput');
-  const commandPaletteList = document.getElementById('commandPaletteList');
-  const commandPaletteModal = document.getElementById('commandPaletteModal');
 
   if (form) form.addEventListener('submit', saveProduct);
   if (tbody) tbody.addEventListener('click', handleTableActions);
-  if (searchInput) searchInput.addEventListener('input', () => renderTable(products, searchInput.value));
+  
+  if (searchInput) searchInput.addEventListener('input', () => { currentPage = 1; renderTable(); });
+  if (categoryFilter) categoryFilter.addEventListener('change', () => { currentPage = 1; renderTable(); });
+  if (sortFilter) sortFilter.addEventListener('change', () => { currentPage = 1; renderTable(); });
+  if (prevPageBtn) prevPageBtn.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTable(); }});
+  if (nextPageBtn) nextPageBtn.addEventListener('click', () => { currentPage++; renderTable(); });
+  
+  if (selectAllCheckbox) {
+    selectAllCheckbox.addEventListener('change', (e) => {
+      const isChecked = e.target.checked;
+      const checkboxes = document.querySelectorAll('input[type="checkbox"][data-action="select"]');
+      checkboxes.forEach(cb => {
+        cb.checked = isChecked;
+        const id = cb.getAttribute('data-id');
+        if (isChecked) selectedItems.add(id);
+        else selectedItems.delete(id);
+        
+        const tr = cb.closest('tr');
+        if (tr) {
+          if (isChecked) tr.classList.add('bg-sky-50/50', 'dark:bg-sky-900/10');
+          else tr.classList.remove('bg-sky-50/50', 'dark:bg-sky-900/10');
+        }
+      });
+      updateBulkActionBtn();
+    });
+  }
+
+  if (bulkActionBtn) bulkActionBtn.addEventListener('click', handleBulkActions);
+  
   if (cancelEditBtn) cancelEditBtn.addEventListener('click', () => { clearAlert(); resetForm(); });
-  if (loadDemoBtn) loadDemoBtn.addEventListener('click', loadDemoProducts);
-  if (clearProductsBtn) clearProductsBtn.addEventListener('click', clearAllProducts);
-  if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
-  if (commandPaletteBtn) commandPaletteBtn.addEventListener('click', openCommandPalette);
-  if (commandPaletteClose) commandPaletteClose.addEventListener('click', closeCommandPalette);
-
-  if (commandPaletteInput) {
-    commandPaletteInput.addEventListener('input', () => renderCommandPalette(commandPaletteInput.value));
-    commandPaletteInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && paletteCommands.length > 0) {
-        event.preventDefault();
-        const selected = paletteCommands[0];
-        closeCommandPalette();
-        selected.action();
+  
+  if (imageUpload) {
+    imageUpload.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit for base64
+        window.toast.show('Image must be under 2MB.', 'error');
+        return;
       }
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const imageUrlInput = document.getElementById('imageUrl');
+        if (imageUrlInput) imageUrlInput.value = evt.target.result;
+      };
+      reader.readAsDataURL(file);
     });
   }
 
-  if (commandPaletteList) {
-    commandPaletteList.addEventListener('click', (event) => {
-      const btn = event.target.closest('[data-cmd-index]');
-      if (!btn) return;
-      const index = Number(btn.getAttribute('data-cmd-index'));
-      const cmd = paletteCommands[index];
-      if (!cmd) return;
-      closeCommandPalette();
-      cmd.action();
-    });
-  }
-
-  if (commandPaletteModal) {
-    commandPaletteModal.addEventListener('click', (event) => {
-      if (event.target === commandPaletteModal) closeCommandPalette();
-    });
-  }
+  if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
 
   if (sidebarToggle) sidebarToggle.addEventListener('click', () => toggleSidebar());
   if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', () => toggleSidebar(false));
 
-  // BUG FIX: logout now removes token AND user (was only removing SESSION_KEY before)
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      window.api.clearAuth();
       window.location.href = 'login.html';
     });
   }
 
+  // Enforce RBAC
+  if (!window.api.canEdit()) {
+    const addProductBtn = document.getElementById('addProductBtn');
+    if (addProductBtn) addProductBtn.style.display = 'none';
+  }
+  if (!window.api.canDelete()) {
+    const bulkActionBtn = document.getElementById('bulkActionBtn');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    if (bulkActionBtn) bulkActionBtn.style.display = 'none';
+    if (selectAllCheckbox) selectAllCheckbox.disabled = true;
+  }
+
   document.addEventListener('keydown', (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-      event.preventDefault();
-      openCommandPalette();
-      return;
-    }
-    if (event.key === 'Escape') { closeCommandPalette(); return; }
     if (event.key.toLowerCase() === 't' && !event.ctrlKey && !event.metaKey && !event.altKey) {
       const target = event.target;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) return;
       toggleTheme();
     }
   });

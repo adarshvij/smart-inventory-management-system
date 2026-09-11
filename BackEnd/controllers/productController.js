@@ -24,7 +24,7 @@ exports.getProducts = async (req, res) => {
 // POST /api/products — create a new product
 exports.createProduct = async (req, res) => {
   try {
-    const { name, category, sku, quantity, reorderLevel, unitPrice } = req.body;
+    const { name, category, sku, quantity, reorderLevel, unitPrice, imageUrl } = req.body;
 
     if (!name || !category || !sku) {
       return res.status(400).json({ message: 'Product name, category, and SKU are required.' });
@@ -53,7 +53,8 @@ exports.createProduct = async (req, res) => {
       sku: sku.trim().toUpperCase(),
       quantity: qty,
       reorderLevel: reorder,
-      unitPrice: price
+      unitPrice: price,
+      imageUrl: imageUrl ? imageUrl.trim() : ''
     });
 
     // Record initial stock movement if quantity > 0
@@ -85,7 +86,7 @@ exports.createProduct = async (req, res) => {
 exports.updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, category, sku, quantity, reorderLevel, unitPrice } = req.body;
+    const { name, category, sku, quantity, reorderLevel, unitPrice, imageUrl } = req.body;
 
     if (!name || !category || !sku) {
       return res.status(400).json({ message: 'Product name, category, and SKU are required.' });
@@ -126,6 +127,9 @@ exports.updateProduct = async (req, res) => {
     product.quantity = qty;
     product.reorderLevel = reorder;
     product.unitPrice = price;
+    if (imageUrl !== undefined) {
+      product.imageUrl = imageUrl.trim();
+    }
     await product.save();
 
     // Record movement if quantity changed

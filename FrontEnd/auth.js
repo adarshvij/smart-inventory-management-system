@@ -157,8 +157,8 @@ function handleLoginPage() {
       }
 
       // Store session
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('sims_token', data.token);
+      localStorage.setItem('sims_user', JSON.stringify(data.user));
 
       if (rememberMe?.checked) {
         localStorage.setItem(REMEMBERED_EMAIL_KEY, email);

@@ -41,6 +41,11 @@ const productSchema = new mongoose.Schema(
       required: true,
       min: [0, 'Unit price cannot be negative'],
       default: 0
+    },
+    imageUrl: {
+      type: String,
+      trim: true,
+      default: ''
     }
   },
   { timestamps: true }

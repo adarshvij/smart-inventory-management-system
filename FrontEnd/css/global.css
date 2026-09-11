@@ -1,0 +1,131 @@
+/* ─── Smart Inventory Global Styles ───────────────────────────────────────────── */
+
+/* Smooth page load fade-in */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+main {
+  animation: fadeInUp 0.4s ease-out;
+}
+
+/* Smooth card hover lift */
+article {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+article:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+}
+
+/* Sidebar link transitions */
+nav a {
+  transition: all 0.15s ease;
+}
+
+/* Button press micro-animation */
+button {
+  transition: all 0.15s ease;
+}
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* Table row transitions */
+tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+/* Toast slide-in from right */
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Smooth scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.6);
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.3);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.5);
+}
+
+/* Checkbox transition */
+input[type="checkbox"] {
+  transition: all 0.15s ease;
+}
+
+/* Status badge pulse for out-of-stock */
+@keyframes subtlePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
+}
+
+/* Selection highlight animation */
+tr.bg-sky-50\/50 {
+  transition: background-color 0.2s ease;
+}
+
+/* Modal backdrop fade */
+.backdrop-blur-sm {
+  transition: opacity 0.2s ease;
+}
+
+/* Focus ring polish */
+input:focus, select:focus, textarea:focus {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Progress bar fill animation */
+[id$="Bar"] {
+  transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Print styles (global fallback) */
+@media print {
+  aside, #sidebarBackdrop, header, .print\:hidden, #toast-container, button#themeToggleBtn {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12px !important;
+  }
+  main {
+    animation: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+  }
+  article {
+    border: none !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+  table {
+    width: 100%;
+  }
+  th, td {
+    padding: 6px 8px !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+  }
+  tr:hover {
+    background: transparent !important;
+  }
+}

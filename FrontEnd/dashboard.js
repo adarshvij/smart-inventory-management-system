@@ -9,35 +9,18 @@ let products = [];
 
 // ─── API Helpers ───────────────────────────────────────────────────────────────
 
-function getAuthHeaders() {
-  const token = localStorage.getItem('token');
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`
-  };
-}
-
-async function apiFetch(path, options = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { ...getAuthHeaders(), ...(options.headers || {}) }
-  });
-
-  if (res.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = 'login.html';
-    throw new Error('Unauthorized');
-  }
-
-  return res;
-}
-
 async function loadProducts() {
-  const res = await apiFetch('/products');
-  if (!res.ok) throw new Error('Failed to load products');
-  products = await res.json();
+  products = await window.api.get('/products');
   return products;
+}
+
+async function loadMovements() {
+  try {
+    return await window.api.get('/movements?limit=10');
+  } catch (err) {
+    console.error('Failed to load movements:', err);
+    return [];
+  }
 }
 
 async function loadAdvisoryData(retries = 2) {
@@ -53,9 +36,7 @@ async function loadAdvisoryData(retries = 2) {
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const res = await apiFetch('/advisory');
-      if (!res.ok) throw new Error('Failed to load advisory data');
-      const data = await res.json();
+      const data = await window.api.get('/advisory');
       renderAdvisoryData(data);
       return;
     } catch (err) {
@@ -110,23 +91,13 @@ function renderAdvisoryData(data) {
 // ─── Session ───────────────────────────────────────────────────────────────────
 
 function ensureSession() {
-  const token = localStorage.getItem('token');
-  const rawUser = localStorage.getItem('user');
-
-  if (!token || !rawUser || rawUser === 'undefined' || rawUser === 'null') {
+  if (!window.api.isAuthenticated()) {
     window.location.href = 'login.html';
     return null;
   }
 
-  let user;
-  try {
-    user = JSON.parse(rawUser);
-  } catch {
-    window.location.href = 'login.html';
-    return null;
-  }
-
-  if (!user || typeof user.fullName !== 'string' || user.fullName.trim() === '') {
+  const user = window.api.getUser();
+  if (!user || !user.fullName) {
     window.location.href = 'login.html';
     return null;
   }
@@ -135,6 +106,7 @@ function ensureSession() {
   const businessEl = document.getElementById('businessName');
   if (nameEl) nameEl.textContent = user.fullName;
   if (businessEl) businessEl.textContent = user.businessName;
+  if (window.renderRoleBadge) window.renderRoleBadge();
 
   return user;
 }
@@ -176,36 +148,7 @@ function toggleTheme() {
   applyTheme(nextTheme);
   updateThemeButtonLabel();
   renderDashboard();
-  showToast(`Switched to ${nextTheme} mode.`, 'info');
-}
-
-// ─── Toast ─────────────────────────────────────────────────────────────────────
-
-function ensureToastContainer() {
-  let container = document.getElementById('toastContainer');
-  if (container) return container;
-  container = document.createElement('div');
-  container.id = 'toastContainer';
-  container.className = 'fixed right-4 top-4 z-[90] flex w-[22rem] max-w-[calc(100vw-2rem)] flex-col gap-2';
-  document.body.appendChild(container);
-  return container;
-}
-
-function showToast(message, type = 'info') {
-  const container = ensureToastContainer();
-  const toneMap = {
-    info: 'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-700 dark:bg-sky-500/10 dark:text-sky-200',
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200',
-    error: 'border-red-200 bg-red-50 text-red-800 dark:border-red-700 dark:bg-red-500/10 dark:text-red-200'
-  };
-  const toast = document.createElement('div');
-  toast.className = `rounded-xl border px-4 py-3 text-sm font-medium shadow-lg backdrop-blur ${toneMap[type] || toneMap.info}`;
-  toast.textContent = message;
-  container.appendChild(toast);
-  setTimeout(() => {
-    toast.classList.add('opacity-0', 'transition', 'duration-300');
-    setTimeout(() => toast.remove(), 300);
-  }, 2400);
+  window.toast.show(`Switched to ${nextTheme} mode.`, 'info');
 }
 
 // ─── Stats & Charts ────────────────────────────────────────────────────────────
@@ -308,6 +251,35 @@ function renderTopValue(prods) {
     .join('');
 }
 
+function renderActivityFeed(movements) {
+  const container = document.getElementById('activityFeedList');
+  if (!container) return;
+  
+  if (!movements || movements.length === 0) {
+    container.innerHTML = '<p class="text-sm text-slate-500">No recent activity.</p>';
+    return;
+  }
+  
+  container.innerHTML = movements.slice(0, 5).map(mov => {
+    const isIn = Number(mov.delta || 0) > 0;
+    const typeClass = isIn ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300' : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300';
+    const deltaLabel = `${isIn ? '+' : ''}${mov.delta}`;
+    const dateStr = new Date(mov.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    
+    return `
+      <div class="flex items-start gap-4 rounded-xl border border-slate-100 p-3 transition hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50">
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${typeClass} font-bold text-sm">
+          ${deltaLabel}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="truncate font-semibold text-slate-900 dark:text-slate-100">${mov.productName || 'Unknown Product'}</p>
+          <p class="truncate text-xs text-slate-500 dark:text-slate-400">${mov.note || (isIn ? 'Stock In' : 'Stock Out')} • ${dateStr}</p>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function destroyCharts() {
   if (stockMixChart) { stockMixChart.destroy(); stockMixChart = null; }
   if (categoryValueChart) { categoryValueChart.destroy(); categoryValueChart = null; }
@@ -390,103 +362,15 @@ function renderDashboard() {
 
 // ─── Demo / Clear / Restock ────────────────────────────────────────────────────
 
-async function loadDemoData() {
-  const demoProducts = [
-    { name: 'Premium Ball Pen Box', category: 'Stationery', sku: 'ST-001', quantity: 18, reorderLevel: 25, unitPrice: 5.5 },
-    { name: 'A4 Copier Paper', category: 'Office Supplies', sku: 'OS-024', quantity: 120, reorderLevel: 60, unitPrice: 4.75 },
-    { name: 'Wireless Barcode Scanner', category: 'Hardware', sku: 'HW-208', quantity: 4, reorderLevel: 8, unitPrice: 32 },
-    { name: 'Thermal Label Roll', category: 'Packaging', sku: 'PK-077', quantity: 0, reorderLevel: 15, unitPrice: 2.2 },
-    { name: 'Packing Tape 2-inch', category: 'Packaging', sku: 'PK-101', quantity: 12, reorderLevel: 12, unitPrice: 1.95 }
-  ];
-
-  showToast('Loading demo data...', 'info');
-  let added = 0;
-  for (const demo of demoProducts) {
-    try {
-      const res = await apiFetch('/products', { method: 'POST', body: JSON.stringify(demo) });
-      if (res.ok) added++;
-    } catch (err) {
-      if (err.message === 'Unauthorized') return;
-    }
-  }
-
-  try { await loadProducts(); } catch {}
-  renderDashboard();
-  showToast(`${added} demo product(s) loaded.`, 'success');
-}
-
-async function clearProducts() {
-  try {
-    await loadProducts();
-    for (const product of products) {
-      const id = product._id || product.id;
-      await apiFetch(`/products/${id}`, { method: 'DELETE' });
-    }
-    products = [];
-    renderDashboard();
-    showToast('All product data cleared.', 'info');
-  } catch (err) {
-    if (err.message !== 'Unauthorized') showToast('Failed to clear products.', 'error');
-  }
-}
-
 async function restockAllLowItems() {
   try {
-    const res = await apiFetch('/products/bulk-restock', { method: 'POST' });
-    const data = await res.json();
-    if (!res.ok) { showToast(data.message || 'Restock failed.', 'error'); return; }
+    const data = await window.api.post('/products/bulk-restock');
     await loadProducts();
     renderDashboard();
-    showToast(data.message || 'Low/out items were auto-restocked.', 'success');
+    window.toast.show(data.message || 'Low/out items were auto-restocked.', 'success');
   } catch (err) {
-    if (err.message !== 'Unauthorized') showToast('Server error during restock.', 'error');
+    if (err.message !== 'Session expired') window.toast.show(err.message || 'Server error during restock.', 'error');
   }
-}
-
-// ─── Command Palette ───────────────────────────────────────────────────────────
-
-function getDashboardCommands() {
-  return [
-    { label: 'Open Inventory Manager', action: () => { window.location.href = 'inventory.html'; } },
-    { label: 'Load Demo Data', action: () => loadDemoData() },
-    { label: 'Clear Product Data', action: () => clearProducts() },
-    { label: 'Auto Restock Low Items', action: () => restockAllLowItems() },
-    { label: 'Toggle Theme', action: () => toggleTheme() },
-    { label: 'Go to Landing Page', action: () => { window.location.href = 'index.html'; } }
-  ];
-}
-
-function renderCommandPalette(filterText = '') {
-  const list = document.getElementById('commandPaletteList');
-  if (!list) return;
-
-  const query = filterText.trim().toLowerCase();
-  paletteCommands = getDashboardCommands().filter((cmd) => cmd.label.toLowerCase().includes(query));
-
-  if (paletteCommands.length === 0) {
-    list.innerHTML = '<p class="rounded-xl px-3 py-2 text-sm text-slate-500 dark:text-slate-400">No matching commands.</p>';
-    return;
-  }
-
-  list.innerHTML = paletteCommands
-    .map((cmd, index) => `<button data-cmd-index="${index}" class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">${cmd.label}</button>`)
-    .join('');
-}
-
-function openCommandPalette() {
-  const modal = document.getElementById('commandPaletteModal');
-  const input = document.getElementById('commandPaletteInput');
-  if (!modal || !input) return;
-  modal.classList.remove('hidden');
-  renderCommandPalette('');
-  input.value = '';
-  setTimeout(() => input.focus(), 0);
-}
-
-function closeCommandPalette() {
-  const modal = document.getElementById('commandPaletteModal');
-  if (!modal) return;
-  modal.classList.add('hidden');
 }
 
 // ─── Sidebar ───────────────────────────────────────────────────────────────────
@@ -503,75 +387,28 @@ function toggleSidebar(forceOpen) {
 
 // ─── Wire Actions ──────────────────────────────────────────────────────────────
 
+// ─── Wire Actions ──────────────────────────────────────────────────────────────
+
 function wireActions() {
-  const loadDemoBtn = document.getElementById('loadDemoBtn');
-  const clearDataBtn = document.getElementById('clearDataBtn');
   const logoutBtn = document.getElementById('logoutBtn');
   const restockAllLowBtn = document.getElementById('restockAllLowBtn');
   const sidebarToggle = document.getElementById('sidebarToggle');
   const sidebarBackdrop = document.getElementById('sidebarBackdrop');
   const themeToggleBtn = document.getElementById('themeToggleBtn');
-  const commandPaletteBtn = document.getElementById('commandPaletteBtn');
-  const commandPaletteClose = document.getElementById('commandPaletteClose');
-  const commandPaletteInput = document.getElementById('commandPaletteInput');
-  const commandPaletteList = document.getElementById('commandPaletteList');
-  const commandPaletteModal = document.getElementById('commandPaletteModal');
 
-  if (loadDemoBtn) loadDemoBtn.addEventListener('click', loadDemoData);
-  if (clearDataBtn) clearDataBtn.addEventListener('click', clearProducts);
   if (restockAllLowBtn) restockAllLowBtn.addEventListener('click', restockAllLowItems);
   if (themeToggleBtn) themeToggleBtn.addEventListener('click', toggleTheme);
-  if (commandPaletteBtn) commandPaletteBtn.addEventListener('click', openCommandPalette);
-  if (commandPaletteClose) commandPaletteClose.addEventListener('click', closeCommandPalette);
-
-  if (commandPaletteInput) {
-    commandPaletteInput.addEventListener('input', () => renderCommandPalette(commandPaletteInput.value));
-    commandPaletteInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter' && paletteCommands.length > 0) {
-        event.preventDefault();
-        const selected = paletteCommands[0];
-        closeCommandPalette();
-        selected.action();
-      }
-    });
-  }
-
-  if (commandPaletteList) {
-    commandPaletteList.addEventListener('click', (event) => {
-      const btn = event.target.closest('[data-cmd-index]');
-      if (!btn) return;
-      const index = Number(btn.getAttribute('data-cmd-index'));
-      const cmd = paletteCommands[index];
-      if (!cmd) return;
-      closeCommandPalette();
-      cmd.action();
-    });
-  }
-
-  if (commandPaletteModal) {
-    commandPaletteModal.addEventListener('click', (event) => {
-      if (event.target === commandPaletteModal) closeCommandPalette();
-    });
-  }
-
   if (sidebarToggle) sidebarToggle.addEventListener('click', () => toggleSidebar());
   if (sidebarBackdrop) sidebarBackdrop.addEventListener('click', () => toggleSidebar(false));
 
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      window.api.clearAuth();
       window.location.href = 'login.html';
     });
   }
 
   document.addEventListener('keydown', (event) => {
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
-      event.preventDefault();
-      openCommandPalette();
-      return;
-    }
-    if (event.key === 'Escape') { closeCommandPalette(); return; }
     if (event.key.toLowerCase() === 't' && !event.ctrlKey && !event.metaKey && !event.altKey) {
       const target = event.target;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) return;
@@ -582,6 +419,8 @@ function wireActions() {
 
 // ─── Init ──────────────────────────────────────────────────────────────────────
 
+let dashboardMovements = [];
+
 async function initDashboard() {
   const session = ensureSession();
   if (!session) return;
@@ -590,15 +429,23 @@ async function initDashboard() {
   wireActions();
   updateThemeButtonLabel();
 
+  // Enforce RBAC
+  if (!window.api.canEdit()) {
+    const restockBtn = document.getElementById('restockAllLowBtn');
+    if (restockBtn) restockBtn.style.display = 'none';
+  }
+
   // Show initial empty state while loading
   renderDashboard();
 
   try {
-    await loadProducts();
+    const [prods, movs] = await Promise.all([loadProducts(), loadMovements()]);
+    dashboardMovements = movs;
     renderDashboard();
+    renderActivityFeed(dashboardMovements);
   } catch (err) {
-    if (err.message !== 'Unauthorized') {
-      showToast('Failed to load inventory data. Is the server running?', 'error');
+    if (err.message !== 'Session expired') {
+      window.toast.show('Failed to load inventory data. Is the server running?', 'error');
     }
   }
 
@@ -608,8 +455,10 @@ async function initDashboard() {
   // Auto-refresh every 30 seconds
   setInterval(async () => {
     try {
-      await loadProducts();
+      const [prods, movs] = await Promise.all([loadProducts(), loadMovements()]);
+      dashboardMovements = movs;
       renderDashboard();
+      renderActivityFeed(dashboardMovements);
       await loadAdvisoryData();
     } catch {}
   }, 30000);
@@ -619,14 +468,17 @@ async function initDashboard() {
       applyTheme(event.newValue);
       updateThemeButtonLabel();
       renderDashboard();
+      renderActivityFeed(dashboardMovements);
     }
   });
 
   document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
       try {
-        await loadProducts();
+        const [prods, movs] = await Promise.all([loadProducts(), loadMovements()]);
+        dashboardMovements = movs;
         renderDashboard();
+        renderActivityFeed(dashboardMovements);
         await loadAdvisoryData();
       } catch {}
     }

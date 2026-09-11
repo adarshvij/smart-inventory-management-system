@@ -67,4 +67,4 @@ def health_check():
 
 if __name__ == '__main__':
     # Run on port 5001 to avoid conflicting with Node backend on 5000
-    app.run(port=5001, debug=True)
+    app.run(host='0.0.0.0', port=5001, debug=False)

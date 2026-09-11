@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <title>Reports | Smart Inventory</title>
+  <script>
+    (function () {
+      const theme = localStorage.getItem('sims_theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      if (theme === 'dark' || (!theme && prefersDark)) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' };
+  </script>
+  <link rel="stylesheet" href="css/global.css" />
+  <script src="js/services/api.js"></script>
+  <script src="js/utils/toast.js"></script>
+  <script src="js/utils/modal.js"></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-100">
+  <div class="min-h-screen md:flex">
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-72 -translate-x-full border-r border-slate-200 bg-white shadow-2xl transition-transform duration-300 dark:border-slate-800 dark:bg-slate-900 md:static md:translate-x-0 md:shadow-none">
+      <div class="flex h-full flex-col">
+        <div class="border-b border-slate-200 bg-gradient-to-r from-sky-50 to-emerald-50 px-6 py-5 dark:border-slate-800 dark:from-sky-900/30 dark:to-emerald-900/20">
+          <a href="dashboard.html" class="flex items-center gap-3">
+            <div class="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-sky-600 to-emerald-500 text-sm font-bold text-white shadow-lg shadow-sky-200">SI</div>
+            <div>
+              <p class="text-sm font-semibold leading-none dark:text-slate-100">Smart Inventory</p>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Operations Console</p>
+            </div>
+          </a>
+        </div>
+
+        <nav class="flex-1 space-y-1 px-4 py-5 text-sm">
+          <p class="px-4 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Workspace</p>
+          <a href="dashboard.html" class="flex items-center gap-2 rounded-xl px-4 py-2.5 font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.5h8.5V3H3v10.5Zm9.5 7.5H21V3h-8.5v18ZM3 21h8.5v-6.5H3V21Z"/></svg>
+            Dashboard
+          </a>
+          <a href="inventory.html" class="flex items-center gap-2 rounded-xl px-4 py-2.5 font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m3 7.5 9-4.5 9 4.5M3 7.5v9L12 21m-9-13.5L12 12m9-4.5v9L12 21m0-9v9"/></svg>
+            Inventory
+          </a>
+          <a href="transactions.html" class="flex items-center gap-2 rounded-xl px-4 py-2.5 font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg>
+            Transactions
+          </a>
+          <a href="reports.html" class="flex items-center justify-between rounded-xl bg-sky-50 px-4 py-2.5 font-semibold text-sky-700 ring-1 ring-sky-200 dark:bg-sky-500/20 dark:text-sky-300 dark:ring-sky-800">
+            <span class="inline-flex items-center gap-2">
+              <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z"/><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z"/></svg>
+              Reports
+            </span>
+            <span class="h-2 w-2 rounded-full bg-sky-600"></span>
+          </a>
+
+          <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/70">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">Quick Snapshot</p>
+            <div class="mt-2 space-y-2 text-xs">
+              <div class="flex items-center justify-between rounded-lg bg-amber-100/70 px-2 py-1.5 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                <span>Critical</span>
+                <span id="sidebarLowCount" class="font-semibold">0</span>
+              </div>
+              <div class="flex items-center justify-between rounded-lg bg-red-100/70 px-2 py-1.5 text-red-800 dark:bg-red-500/20 dark:text-red-300">
+                <span>Out Stock</span>
+                <span id="sidebarOutCount" class="font-semibold">0</span>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        <div class="border-t border-slate-200 px-4 py-4 dark:border-slate-800">
+          <div class="mb-3 rounded-xl bg-slate-50 px-4 py-3 dark:bg-slate-800/70">
+            <p id="userName" class="text-sm font-semibold text-slate-900 dark:text-slate-100"></p>
+            <p id="businessName" class="text-xs text-slate-500 dark:text-slate-400"></p>
+            <span id="userRole" class="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"></span>
+          </div>
+          <button id="logoutBtn" type="button" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Logout</button>
+        </div>
+      </div>
+    </aside>
+
+    <div id="sidebarBackdrop" class="fixed inset-0 z-30 hidden bg-slate-900/40 md:hidden"></div>
+
+    <div class="relative flex-1">
+      <div class="pointer-events-none absolute -top-44 left-1/2 -z-10 h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-gradient-to-r from-cyan-300/35 via-sky-300/20 to-emerald-300/35 blur-3xl"></div>
+
+      <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/85 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+          <div class="flex items-center gap-3">
+            <button id="sidebarToggle" type="button" class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 md:hidden">Menu</button>
+            <div>
+              <p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Analytics</p>
+              <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">Reports & Exports</h1>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="themeToggleBtn" type="button" aria-label="Toggle theme" title="Toggle theme" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+              <span id="themeIcon" class="inline-flex h-4 w-4 items-center justify-center"></span>
+              <span id="themeLabel">Dark Mode</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        <section class="grid gap-6 lg:grid-cols-3">
+          <!-- Generate Report Card -->
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-1 print:hidden">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">Generate Report</h2>
+            <form id="reportForm" class="space-y-4">
+              <div>
+                <label for="reportType" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Report Type</label>
+                <select id="reportType" required class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60">
+                  <option value="inventory">Inventory Status</option>
+                  <option value="transactions">Transaction History</option>
+                </select>
+              </div>
+              
+              <div id="dateRangeWrapper" class="hidden">
+                <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Date Range (Transactions)</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <input id="dateFrom" type="date" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" />
+                  <input id="dateTo" type="date" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" />
+                </div>
+              </div>
+
+              <div>
+                <label for="reportFormat" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Format</label>
+                <select id="reportFormat" required class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60">
+                  <option value="pdf">Print / Save as PDF</option>
+                  <option value="csv">Export to CSV</option>
+                </select>
+              </div>
+
+              <button type="submit" id="generateBtn" class="mt-4 w-full rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-500">
+                Generate & Export
+              </button>
+            </form>
+          </article>
+
+          <!-- Report Preview Area -->
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:col-span-2">
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between print:hidden">
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Report Preview</h2>
+            </div>
+            
+            <div id="printHeader" class="hidden pb-4 mb-4 border-b border-slate-200 dark:border-slate-700 print:block">
+              <h1 class="text-2xl font-bold text-slate-900 dark:text-slate-100">Smart Inventory Report</h1>
+              <p id="printSubtitle" class="text-sm text-slate-600 dark:text-slate-400">Generated on <span id="printDate"></span></p>
+            </div>
+
+            <div class="overflow-x-auto flex-1">
+              <table class="min-w-full text-left text-sm" id="previewTable">
+                <thead id="previewThead">
+                  <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    <th class="px-3 py-3">Item</th>
+                    <th class="px-3 py-3">Category</th>
+                    <th class="px-3 py-3">Stock</th>
+                    <th class="px-3 py-3">Value</th>
+                  </tr>
+                </thead>
+                <tbody id="previewTbody">
+                  <tr>
+                    <td colspan="4" class="px-4 py-8 text-center text-sm text-slate-600 dark:text-slate-400">Select a report type and click generate.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </main>
+
+    </div>
+  </div>
+
+  <script src="js/reports.js"></script>
+</body>
+</html>

@@ -21,6 +21,10 @@
   <script>
     tailwind.config = { darkMode: 'class' };
   </script>
+  <link rel="stylesheet" href="css/global.css" />
+  <script src="js/services/api.js"></script>
+  <script src="js/utils/toast.js"></script>
+  <script src="js/utils/modal.js"></script>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-100">
   <div class="min-h-screen md:flex">
@@ -49,9 +53,13 @@
             </span>
             <span class="h-2 w-2 rounded-full bg-sky-600"></span>
           </a>
-          <a href="index.html" class="flex items-center gap-2 rounded-xl px-4 py-2.5 font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 11.5 12 4l9 7.5M5.5 10v10h13V10"/></svg>
-            Landing Page
+          <a href="transactions.html" class="flex items-center gap-2 rounded-xl px-4 py-2.5 font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg>
+            Transactions
+          </a>
+          <a href="reports.html" class="flex items-center gap-2 rounded-xl px-4 py-2.5 font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z"/><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z"/></svg>
+            Reports
           </a>
 
           <div class="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/70">
@@ -73,6 +81,7 @@
           <div class="mb-3 rounded-xl bg-slate-50 px-4 py-3 dark:bg-slate-800/70">
             <p id="userName" class="text-sm font-semibold text-slate-900 dark:text-slate-100"></p>
             <p id="businessName" class="text-xs text-slate-500 dark:text-slate-400"></p>
+            <span id="userRole" class="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"></span>
           </div>
           <button id="logoutBtn" type="button" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Logout</button>
         </div>
@@ -89,18 +98,15 @@
           <div class="flex items-center gap-3">
             <button id="sidebarToggle" type="button" class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 md:hidden">Menu</button>
             <div>
-              <p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Module 4</p>
-              <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">Inventory Management</h1>
+              <p class="text-xs font-semibold uppercase tracking-wide text-sky-700">Inventory Management</p>
+              <h1 class="text-xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-2xl">Products Overview</h1>
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <button id="commandPaletteBtn" type="button" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">Ctrl+K</button>
             <button id="themeToggleBtn" type="button" aria-label="Toggle theme" title="Toggle theme" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
               <span id="themeIcon" class="inline-flex h-4 w-4 items-center justify-center"></span>
               <span id="themeLabel">Dark Mode</span>
             </button>
-            <button id="loadDemoBtn" type="button" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-slate-300 transition hover:-translate-y-0.5 hover:bg-slate-700">Load Demo</button>
-            <button id="clearProductsBtn" type="button" class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">Clear</button>
           </div>
         </div>
       </header>
@@ -165,9 +171,19 @@
                 </div>
               </div>
 
-              <div>
-                <label for="unitPrice" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Unit price (Rupees)</label>
-                <input id="unitPrice" type="number" min="0" step="0.01" required class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" placeholder="32.00" />
+              <div class="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label for="unitPrice" class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Unit price (Rupees)</label>
+                  <input id="unitPrice" type="number" min="0" step="0.01" required class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" placeholder="32.00" />
+                </div>
+                <div>
+                  <label class="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Product Image (URL or Upload)</label>
+                  <div class="flex gap-2">
+                    <input id="imageUrl" type="url" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" placeholder="https://example.com/image.jpg" />
+                    <button type="button" onclick="document.getElementById('imageUpload').click()" class="shrink-0 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 hover:dark:bg-slate-700">Browse</button>
+                    <input type="file" id="imageUpload" accept="image/*" class="hidden" />
+                  </div>
+                </div>
               </div>
 
               <div class="flex gap-2 pt-1">
@@ -177,16 +193,30 @@
             </form>
           </article>
 
-          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 xl:col-span-2">
+          <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 xl:col-span-2 flex flex-col">
             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Products and Quick Stock Update</h2>
-              <input id="searchInput" type="search" placeholder="Search by name, category, or SKU" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60 sm:w-80" />
+              
+              <div class="flex flex-wrap items-center gap-2">
+                <button id="bulkActionBtn" class="hidden rounded-xl bg-slate-800 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600">Bulk Actions</button>
+                <select id="categoryFilter" class="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60">
+                  <option value="ALL">All Categories</option>
+                </select>
+                <select id="sortFilter" class="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60">
+                  <option value="newest">Newest First</option>
+                  <option value="name_asc">Name A-Z</option>
+                  <option value="stock_asc">Stock Low-High</option>
+                  <option value="stock_desc">Stock High-Low</option>
+                </select>
+                <input id="searchInput" type="search" placeholder="Search by name, category, or SKU" class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60 sm:w-64" />
+              </div>
             </div>
 
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto flex-1">
               <table class="min-w-full text-left text-sm">
                 <thead>
                   <tr class="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    <th class="px-3 py-3 w-10"><input type="checkbox" id="selectAllCheckbox" class="rounded border-slate-300 dark:border-slate-600 dark:bg-slate-800"></th>
                     <th class="px-3 py-3">Product</th>
                     <th class="px-3 py-3">Stock</th>
                     <th class="px-3 py-3">Price</th>
@@ -200,7 +230,15 @@
             </div>
 
             <div id="emptyState" class="mt-4 hidden rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400">
-              No products found. Add your first item to get started.
+              No products found.
+            </div>
+
+            <div class="mt-4 flex items-center justify-between border-t border-slate-200 pt-4 dark:border-slate-800">
+              <p class="text-sm text-slate-500 dark:text-slate-400">Showing <span id="showingCount">0</span> entries</p>
+              <div class="flex items-center gap-2">
+                <button id="prevPageBtn" class="rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">Previous</button>
+                <button id="nextPageBtn" class="rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">Next</button>
+              </div>
             </div>
           </article>
         </section>
@@ -233,18 +271,6 @@
         </section>
       </main>
 
-      <div id="commandPaletteModal" class="fixed inset-0 z-[70] hidden bg-slate-950/40 p-4 backdrop-blur-sm">
-        <div class="mx-auto mt-16 w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-          <div class="border-b border-slate-200 p-3 dark:border-slate-700">
-            <input id="commandPaletteInput" type="text" placeholder="Type a command..." class="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-sky-900/60" />
-          </div>
-          <div id="commandPaletteList" class="max-h-80 overflow-y-auto p-2"></div>
-          <div class="flex items-center justify-between border-t border-slate-200 px-4 py-2 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            <span>Enter to run</span>
-            <button id="commandPaletteClose" type="button" class="rounded-lg px-2 py-1 hover:bg-slate-100 dark:hover:bg-slate-800">Esc</button>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 
